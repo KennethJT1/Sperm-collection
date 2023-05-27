@@ -1,0 +1,57 @@
+###
+
+GET http://localhost:4897 HTTP/1.1
+
+###
+
+GET http://localhost:4897/a68b823c-7ca6-44bc-b721-fb4d5312cafc HTTP/1.1
+
+### CREATE USER
+# walexeniola081@gmail.com
+# oluwatomiwa96@gmail.com
+# kennetholuwatomiwa966@gmail.com
+POST http://localhost:4897/register HTTP/1.1
+content-type: application/json
+
+{
+    "email": "oluwatomiwa96@gmail.com",
+    "password": "hashpassowrd",
+    "firstName": "Seun",
+    "lastName" : "Philips"
+}
+
+### VERIFY USER
+
+POST http://localhost:4897/verify/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY0NzE3MjUwOWYyODM1NjE2NjhkMjJkMiIsImVtYWlsIjoib2x1d2F0b21pd2E5NkBnbWFpbC5jb20iLCJpYXQiOjE2ODUxNTY0MzIsImV4cCI6MTY4NTI0MjgzMn0.mccm87CKIxQzOKwWikazx4Q6vh4JNY1Qd1rk_GyLcxs HTTP/1.1
+content-type: application/json
+
+{
+    "otp": "4364"
+}
+
+### LOGIN USER
+
+POST http://localhost:4897/login HTTP/1.1
+content-type: application/json
+
+{
+   "email": "oluwatomiwa96@gmail.com",
+    "password": "hashpassowrd"
+}
+
+### UPDATE USER
+
+PUT http://localhost:4897/update/a68b823c-7ca6-44bc-b721-fb4d5312cafc HTTP/1.1
+content-type: application/json
+
+{
+    "name": "Topklass",
+    "email": "walexeniola081@gmail.com",
+    "age": 57
+}
+
+### REMOVE USER
+
+POST http://localhost:4897/remove/a68b823c-7ca6-44bc-b721-fb4d5312cafc HTTP/1.1
+content-type: application/json
+ 

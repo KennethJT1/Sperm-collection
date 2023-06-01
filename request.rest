@@ -14,30 +14,34 @@ POST http://localhost:4897/register HTTP/1.1
 content-type: application/json
 
 {
-    "email": "oluwatomiwa96@gmail.com",
+    "email": "walexeniola081@gmail.com",
     "password": "hashpassowrd",
-    "firstName": "Seun",
+    "firstName": "Lola",
     "lastName" : "Philips"
 }
 
 ### VERIFY USER
 
-POST http://localhost:4897/verify/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY0NzE3MjUwOWYyODM1NjE2NjhkMjJkMiIsImVtYWlsIjoib2x1d2F0b21pd2E5NkBnbWFpbC5jb20iLCJpYXQiOjE2ODUxNTY0MzIsImV4cCI6MTY4NTI0MjgzMn0.mccm87CKIxQzOKwWikazx4Q6vh4JNY1Qd1rk_GyLcxs HTTP/1.1
+POST http://localhost:4897/verify/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY0NzQyMGNlZTVhZjY5NWE0ZTI0MzQyYSIsImVtYWlsIjoib2x1d2F0b21pd2E5NkBnbWFpbC5jb20iLCJpYXQiOjE2ODUzMzIxNzQsImV4cCI6MTY4NTQxODU3NH0.bzofjJV8qLssSCWLMjaR7STmU0V9aRD_zSk-l5tjvYI HTTP/1.1
 content-type: application/json
 
 {
-    "otp": "4364"
+    "otp": "1495"
 }
 
 ### LOGIN USER
-
 POST http://localhost:4897/login HTTP/1.1
 content-type: application/json
 
 {
    "email": "oluwatomiwa96@gmail.com",
-    "password": "hashpassowrd"
+    "password": "hashpasowrd"
 }
+
+### GET MY PROFILE
+GET http://localhost:4897/my-profile HTTP/1.1
+Content-Type: application/xml
+Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY0NzQyMGNlZTVhZjY5NWE0ZTI0MzQyYSIsImVtYWlsIjoib2x1d2F0b21pd2E5NkBnbWFpbC5jb20iLCJpYXQiOjE2ODUzMzQ0MzUsImV4cCI6MTY4NTQyMDgzNX0.LZyYpSI96HpF3q0Gn3fPO2YZONLslOS60Bbawsh9uUY
 
 ### UPDATE USER
 

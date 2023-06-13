@@ -7,6 +7,7 @@ export interface UserDocument extends Document {
   firstName: string;
   lastName: string;
   email: string;
+  phoneNumber: string;
   password: string;
   image?: string;
   age?: number;
@@ -30,6 +31,10 @@ const userSchema = new Schema(
     email: {
       type: String,
       unique: true,
+      required: true,
+    },
+    phoneNumber: {
+      type: String,
       required: true,
     },
     password: {

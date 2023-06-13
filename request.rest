@@ -14,19 +14,21 @@ POST http://localhost:4897/register HTTP/1.1
 content-type: application/json
 
 {
-    "email": "walexeniola081@gmail.com",
+    "email": "oluwatomiwa96@gmail.com",    
     "password": "hashpassowrd",
     "firstName": "Lola",
-    "lastName" : "Philips"
+    "lastName" : "Philips",
+    "phoneNumber": "+2347014216076"
 }
 
 ### VERIFY USER
 
-POST http://localhost:4897/verify/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY0NzQyMGNlZTVhZjY5NWE0ZTI0MzQyYSIsImVtYWlsIjoib2x1d2F0b21pd2E5NkBnbWFpbC5jb20iLCJpYXQiOjE2ODUzMzIxNzQsImV4cCI6MTY4NTQxODU3NH0.bzofjJV8qLssSCWLMjaR7STmU0V9aRD_zSk-l5tjvYI HTTP/1.1
+POST http://localhost:4897/verify HTTP/1.1
 content-type: application/json
 
 {
-    "otp": "1495"
+    "email": "oluwatomiwa96@gmail.com",    
+    "otp": "6536"
 }
 
 ### LOGIN USER
@@ -59,3 +61,12 @@ content-type: application/json
 POST http://localhost:4897/remove/a68b823c-7ca6-44bc-b721-fb4d5312cafc HTTP/1.1
 content-type: application/json
  
+
+### RESEND OTP
+
+POST http://localhost:4897/resend-otp HTTP/1.1
+content-type: application/json
+
+{
+    "email": "oluwatomiwa96@gmail.com"
+}

@@ -2,34 +2,24 @@ import { Request, Response } from "express";
 import sgMail from "@sendgrid/mail";
 import { JwtPayload } from "jsonwebtoken";
 import User from "../models/users";
-import {
-  GenerateSignature,
-  clientSchema,
-  option,
-  registerSchema,
-  verifySignature,
-} from "../utils/utils";
+import { clientSchema, option, verifySignature } from "../utils/utils";
 import {
   CLIENT_URL,
   FROM_EMAIL,
   GenerateOTP,
   SENDGRID_KEY,
+  fromAdminMail,
   generateRandomPassword,
+  userSubject,
+  JWT_EXPIRE,
 } from "../config";
-import { emailHtml, sendEmail } from "../utils";
-
+import { emailHtml, mailsent, onPasswordReset, onRequestOTP } from "../utils";
 sgMail.setApiKey(SENDGRID_KEY);
 
 export const Createuser = async (req: Request, res: Response) => {
   try {
-    const { firstName, lastName, email, password } = req.body;
+    const { firstName, lastName, email, password, phoneNumber } = req.body;
 
-    const validateResult = registerSchema.validate(req.body, option);
-    if (validateResult.error) {
-      return res.status(400).json({
-        Error: validateResult.error.details[0].message,
-      });
-    }
     const isNotVerified = await User.findOne({ email, verified: false });
     if (isNotVerified) {
       return res
@@ -42,13 +32,14 @@ export const Createuser = async (req: Request, res: Response) => {
     if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
     } else {
-      // const salt = await GenerateSalt();
-      // const hashPassowrd = await bcrypt.hash(password, salt);
-
       const { otp, expiry } = GenerateOTP();
+
+      //send sms to the registered user phone number
+      const sms = await onRequestOTP(otp, phoneNumber);
 
       const newUser = await User.create({
         email,
+        phoneNumber,
         password,
         firstName,
         lastName,
@@ -59,31 +50,9 @@ export const Createuser = async (req: Request, res: Response) => {
       });
       console.log("newUser===> ", newUser);
 
-      //Generate signature for user
-      const signature = await newUser.getSignedJwtToken();
-
-      const message = await emailHtml(otp)
-
-      await sendEmail({
-        email: newUser.email,
-        subject: 'OTP',
-        message
-      })
-      // const emailData = {
-      //   to: email,
-      //   from: FROM_EMAIL,
-      //   subject: "OTP",
-      //   html: `
-      //     <h1>Hi ${firstName} ${lastName}, Your OTP status is: <span style="color:cyan;">${otp}</span></h1>
-      //      <p>Visit <a href="${CLIENT_URL}/verify/${signature}">your browser to enter your OTP</a></p>
-      //   `,
-      // };
-
-
       return res.status(201).json({
         msg: `${firstName} ${lastName} account created successfully, check your email for verification`,
-        signature,
-        newUser,
+        User: newUser,
       });
     }
   } catch (error: any) {
@@ -94,12 +63,11 @@ export const Createuser = async (req: Request, res: Response) => {
 
 export const verifyUser = async (req: Request, res: Response) => {
   try {
-    const token = req.params.signature;
-    const decode = await verifySignature(token);
+    const { email, otp } = req.body;
 
     // check if the user is a registered user
     const registeredUser = await User.findOne({
-      where: { email: decode.email },
+      where: { email },
     });
 
     if (!registeredUser) {
@@ -107,7 +75,6 @@ export const verifyUser = async (req: Request, res: Response) => {
         Error: "Invalid credential or OTP already expired",
       });
     } else {
-      const { otp } = req.body;
       if (
         registeredUser.otp === parseInt(otp) &&
         registeredUser.expiry! >= new Date()
@@ -117,16 +84,19 @@ export const verifyUser = async (req: Request, res: Response) => {
         });
 
         // Regenerate a new signature
-        let signature = await GenerateSignature({
-          id: updatedUser!._id,
-          email: updatedUser!.email,
-        });
+        let signature = await registeredUser.getSignedJwtToken();
+
+        const options = {
+          expires: new Date(Date.now() + JWT_EXPIRE * 24 * 60 * 60 * 1000),
+          httpOnly: true,
+        };
+
         if (updatedUser) {
           const UserVerified = await User.findOne({
-            where: { email: decode.email },
+            where: { email },
           });
 
-          return res.status(200).json({
+          return res.status(200).cookie("token", signature, options).json({
             message: "You have successfully verified your account",
             signature,
             verified: UserVerified!.verified,
@@ -149,20 +119,25 @@ export const Login = async (req: Request, res: Response) => {
     );
     if (!existUser) {
       return res.status(400).json({
-        Error: "Wrong email or password or not a verified user",
+        Error: "Invalid credentials or not a verified user",
       });
     }
 
     const isPassword = existUser.matchPassword(password);
     if (!isPassword) {
       return res.status(400).json({
-        Error: "Wrong email or password or not a verified user",
+        Error: "Invalid credentials or not a verified user",
       });
     }
 
     const signature = existUser.getSignedJwtToken();
 
-    return res.status(200).json({
+    const options = {
+      expires: new Date(Date.now() + JWT_EXPIRE * 24 * 60 * 60 * 1000),
+      httpOnly: true,
+    };
+
+    return res.status(200).cookie("token", signature, options).json({
       message: "You have successfully logged in",
       signature,
       existUser,
@@ -177,7 +152,6 @@ export const Myprofile = async (req: JwtPayload, res: Response) => {
   try {
     const { email } = req.user;
     const user = await User.findOne({ email });
-    console.log("user", user);
     if (!user) {
       return res.status(400).json({
         Error: "Invalid credentials",
@@ -186,8 +160,7 @@ export const Myprofile = async (req: JwtPayload, res: Response) => {
 
     return res.status(200).json({
       message: "Your Profile",
-      email: user!.email,
-      role: user!.role,
+      Profile: user,
     });
   } catch (error: any) {
     console.log("My profile error==> ", error);
@@ -207,10 +180,10 @@ export const Updateprofile = async (req: JwtPayload, res: Response) => {
       });
     }
 
-    user!.password = undefined as any;
+    // user!.password = undefined as any;
     return res.status(200).json({
       message: "Your Profile",
-      user,
+      Profile: user,
     });
   } catch (error: any) {
     console.log("Update my profile error==> ", error);
@@ -251,6 +224,8 @@ export const ForgotPassword = async (req: Request, res: Response) => {
     //  2. result the password in the database to the auto=password
     const dbPassword = user.updateOne({ password: newPassword });
     // 3. send a mail to the user to change his/her password from the send password
+    const newpassword = await onPasswordReset(newPassword, user.phoneNumber);
+
     const emailData = {
       to: email,
       from: FROM_EMAIL,
@@ -302,43 +277,50 @@ export const resendOTP = async (req: Request, res: Response) => {
     const { otp, expiry } = GenerateOTP();
 
     const user = await User.updateOne(
-      email,
-      { otp, expiry },
-      {
-        new: true,
-      }
+      {email},
+      { otp, expiry }
     );
+console.log("otp", otp)
+    const sms = await onRequestOTP(otp, isNotVerified!.phoneNumber);
 
     const signature = await isNotVerified.getSignedJwtToken();
-
-    const emailData = {
-      to: email,
-      from: FROM_EMAIL,
-      subject: "OTP",
-      html: `
-          <h1>Hi ${isNotVerified.firstName} ${isNotVerified.lastName}, Your OTP status is: <span style="color:cyan;">${otp}</span></h1>
-           <p>Visit <a href="${CLIENT_URL}/verify/${signature}">your browser to enter your OTP</a></p>
-        `,
+    const options = {
+      expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      // new Date(Date.now() + JWT_EXPIRE * 24 * 60 * 60 * 1000),
+      httpOnly: true,
     };
 
-    (async () => {
-      try {
-        await sgMail.send(emailData);
-      } catch (error: any) {
-        console.error(error);
+    // const emailData = {
+    //   to: email,
+    //   from: FROM_EMAIL,
+    //   subject: "OTP",
+    //   html: `
+    //       <h1>Hi ${isNotVerified.firstName} ${isNotVerified.lastName}, Your OTP status is: <span style="color:cyan;">${otp}</span></h1>
+    //        <p>Visit <a href="${CLIENT_URL}/verify/${signature}">your browser to enter your OTP</a></p>
+    //     `,
+    // };
 
-        if (error.response) {
-          console.error(error.response.body);
-        }
-      }
-    })();
+    // (async () => {
+    //   try {
+    //     await sgMail.send(emailData);
+    //   } catch (error: any) {
+    //     console.error(error);
 
-    return res.status(201).json({
-      msg: `${isNotVerified.firstName} ${isNotVerified.lastName} a new OTP has been sent, check your email for verification`,
-      signature,
-    });
+    //     if (error.response) {
+    //       console.error(error.response.body);
+    //     }
+    //   }
+    // })();
+
+    return res
+      .status(201)
+      .cookie("token", signature, options)
+      .json({
+        msg: `${isNotVerified.firstName} ${isNotVerified.lastName}, a new OTP has been sent, check your email for verification`,
+        signature,
+      });
   } catch (error: any) {
-    console.log("Update password error==> ", error);
+    console.log("Update otp error==> ", error);
     return res.status(500).json({ error: error.message });
   }
 };
@@ -371,7 +353,7 @@ export const Createclient = async (req: JwtPayload, res: Response) => {
     );
     return res.status(201).json({
       message: `You are now a ${client!.role}`,
-      Detail: client
+      Detail: client,
     });
   } catch (error: any) {
     console.log("Client registration error==> ", error);
@@ -380,38 +362,38 @@ export const Createclient = async (req: JwtPayload, res: Response) => {
 };
 
 export const Findusers = async (req: JwtPayload, res: Response) => {
-    try {
-      const allUsers = await User.find({role: "user"});
-  
-      return res.status(200).json({
-        Users: allUsers,
-      });
-    } catch (error: any) {
-      console.log("All users details error==> ", error);
-      return res.status(500).json({ error: error.message });
-    }
-  };
+  try {
+    const allUsers = await User.find({ role: "user" });
+
+    return res.status(200).json({
+      Users: allUsers,
+    });
+  } catch (error: any) {
+    console.log("All users details error==> ", error);
+    return res.status(500).json({ error: error.message });
+  }
+};
 export const Finddonors = async (req: JwtPayload, res: Response) => {
-    try {
-      const allDonors = await User.find({role: "donor"});
-  
-      return res.status(200).json({
-        Donors: allDonors,
-      });
-    } catch (error: any) {
-      console.log("All Donors details error==> ", error);
-      return res.status(500).json({ error: error.message });
-    }
-  };
+  try {
+    const allDonors = await User.find({ role: "donor" });
+
+    return res.status(200).json({
+      Donors: allDonors,
+    });
+  } catch (error: any) {
+    console.log("All Donors details error==> ", error);
+    return res.status(500).json({ error: error.message });
+  }
+};
 export const Findsurrogates = async (req: JwtPayload, res: Response) => {
-    try {
-      const allSurrogates = await User.find({role: "surrogate"});
-  
-      return res.status(200).json({
-        Surrogates: allSurrogates,
-      });
-    } catch (error: any) {
-      console.log("All surrogate details error==> ", error);
-      return res.status(500).json({ error: error.message });
-    }
-  };
+  try {
+    const allSurrogates = await User.find({ role: "surrogate" });
+
+    return res.status(200).json({
+      Surrogates: allSurrogates,
+    });
+  } catch (error: any) {
+    console.log("All surrogate details error==> ", error);
+    return res.status(500).json({ error: error.message });
+  }
+};

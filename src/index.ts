@@ -2,6 +2,8 @@ import express from "express";
 import dotenv from "dotenv";
 import logger from "morgan";
 import mongoose from "mongoose";
+import cookieParser from "cookie-parser";
+
 
 import authRoute from "./routes/auth";
 
@@ -20,6 +22,7 @@ mongoose
 // //middlewares
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
 app.use(logger("dev"));
 
 // //Routes
